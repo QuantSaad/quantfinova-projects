@@ -1,0 +1,120 @@
+# ARIMA(1,2,1) Model on Anti-Diabetic Drug Sales in Australia
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_squared_error
+from statsmodels.tsa.stattools import adfuller
+
+# Load dataset
+url = "https://raw.githubusercontent.com/selva86/datasets/master/a10.csv"
+df = pd.read_csv(url)
+df['date'] = pd.to_datetime(df['date'])
+df.set_index('date', inplace=True)
+df.rename(columns={'value': 'Sales'}, inplace=True)
+
+# Plot original sales data
+df['Sales'].plot(figsize=(12, 5), title="Original Sales Series")
+plt.ylabel("Sales (AUD Millions)")
+plt.show()
+
+# Optional: Second differencing for stationarity check (not used in model directly)
+df['diff2'] = df['Sales'].diff().diff()
+
+# ADF test on second difference
+result_diff2 = adfuller(df['diff2'].dropna())
+print("ADF Test - Second Order Differencing")
+print(f"ADF Statistic: {result_diff2[0]}")
+print(f"p-value: {result_diff2[1]}")
+
+# Plot ACF and PACF for second-order differenced data
+plot_acf(df['diff2'].dropna(), lags=30)
+plt.title("ACF - Second-Order Difference")
+plt.show()
+
+plot_pacf(df['diff2'].dropna(), lags=30)
+plt.title("PACF - Second-Order Difference")
+plt.show()
+
+# Split train/test
+train = df['Sales'][:-12]
+test = df['Sales'][-12:]
+
+# Fit ARIMA(1,2,1)
+model = ARIMA(train, order=(1,2,1))
+fit = model.fit()
+forecast = fit.forecast(steps=12)
+
+# Evaluate
+from sklearn.metrics import mean_squared_error
+import numpy as np
+
+# After fitting your model
+forecast = fit.forecast(steps=12)
+rmse = np.sqrt(mean_squared_error(test, forecast))
+aic = fit.aic
+
+print(f"RMSE: {rmse:.2f}")
+print(f"AIC: {aic:.2f}")
+
+
+# Plot forecast vs actual
+plt.figure(figsize=(16, 8))
+plt.plot(df.index, df['Sales'], label="Actual Sales")
+forecast_index = pd.date_range(start=test.index[0], periods=12, freq='MS')
+plt.plot(forecast_index, forecast, label="Forecast", linestyle='--', color='orange')
+plt.title("ARIMA(1,2,1) Forecast of Anti-Diabetic Drug Sales")
+plt.xlabel("Date")
+plt.ylabel("Sales (AUD Millions)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Get forecasted values for the test period
+forecast = fit.forecast(steps=12)
+
+# Create a date range for forecasted months
+forecast_index = pd.date_range(start=test.index[0], periods=12, freq='MS')
+
+# Combine into a DataFrame
+forecast_df = pd.DataFrame({
+    'Date': forecast_index,
+    'Forecasted Sales': forecast
+})
+
+# Print the results
+print(forecast_df)
+
+import matplotlib.pyplot as plt
+
+# Plot actual test values and forecast
+plt.figure(figsize=(12, 6))
+plt.plot(test.index, test, label='Actual Sales', marker='o')
+plt.plot(test.index, forecast, label='Forecasted Sales', linestyle='--', marker='x')
+plt.title("Forecast vs Actual Sales (Jan–Dec 2008)")
+plt.xlabel("Date")
+plt.ylabel("Sales (AUD Millions)")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+comparison_df = pd.DataFrame({
+    'Date': test.index,
+    'Actual Sales': test.values,
+    'Forecasted Sales': forecast
+})
+
+# Optional: Add absolute error
+comparison_df['Absolute Error'] = abs(comparison_df['Actual Sales'] - comparison_df['Forecasted Sales'])
+
+print(comparison_df)
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+import numpy as np
+
+rmse = np.sqrt(mean_squared_error(test, forecast))
+mae = mean_absolute_error(test, forecast)
+
+print(f"RMSE: {rmse:.2f}")
+print(f"MAE: {mae:.2f}")
